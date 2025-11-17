@@ -1,0 +1,47 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: '3e8a870'
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: '79a6b2b'
+    hooks:
+      - id: yamllint
+        exclude: (.*/templates/|.*.helmfile.yaml) # templating breaks yaml parser
+        verbose: true
+  - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+    rev: 8d1b9ca
+    # if this hook spits Python errors, check if the breaking file is using templates and if the syntax is valid
+    hooks:
+      - id: yamlfmt
+        exclude: (..*/templates/|.*.helmfile.yaml|.*cloud-config.*\.yaml)
+        args: [--mapping, "2", --sequence, "4", --offset, "2", --preserve-quotes]
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: 3e855bb
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_tflint
+        verbose: true
+        args:
+          # https://github.com/terraform-linters/tflint/tree/master/docs/rules
+          - --args=--force # dont break on warning
+          - --args=--enable-rule=terraform_required_version
+          - --args=--enable-rule=terraform_required_providers
+          - --args=--enable-rule=terraform_module_pinned_source
+          - --args=--enable-rule=terraform_unused_declarations
+          - --args=--enable-rule=terraform_unused_required_providers
+          - --args=--enable-rule=terraform_deprecated_interpolation
+          - --args=--enable-rule=terraform_deprecated_index
+          - --args=--enable-rule=terraform_empty_list_equality
+      - id: terraform_docs
+        exclude: (^infra/)
+        args:
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+          - --args=--lockfile=false
