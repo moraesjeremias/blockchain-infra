@@ -2,3 +2,4 @@ env.tfvars
 .terraform
 *.tfstate*
 *backend.conf*
+*bkp.yml
