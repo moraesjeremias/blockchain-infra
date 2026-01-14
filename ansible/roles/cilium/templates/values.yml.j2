@@ -1,0 +1,21 @@
+---
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+
+kubeProxyReplacement: true
+
+k8sServiceHost: "{{ cilium_k8s_service_host }}"
+k8sServicePort: "{{ cilium_k8s_service_port }}"
+
+ipam:
+  mode: kubernetes
+
+operator:
+  replicas: 1
+
+cni:
+  exclusive: false

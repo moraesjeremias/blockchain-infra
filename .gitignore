@@ -3,3 +3,7 @@ env.tfvars
 *.tfstate*
 *backend.conf*
 *bkp.yml
+
+# Ansible
+ansible/.vault_password
+ansible/kubeconfig

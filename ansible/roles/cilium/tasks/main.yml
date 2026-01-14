@@ -1,0 +1,85 @@
+---
+  - name: Check if Helm is installed
+    ansible.builtin.stat:
+      path: /usr/local/bin/helm
+    register: helm_binary
+
+  - name: Install Helm
+    ansible.builtin.shell: |
+      curl -fsSL https://get.helm.sh/helm-v{{ helm_version }}-linux-amd64.tar.gz | \
+        tar -xz -C /tmp && \
+      mv /tmp/linux-amd64/helm /usr/local/bin/helm && \
+      chmod +x /usr/local/bin/helm && \
+      rm -rf /tmp/linux-amd64
+    args:
+      creates: /usr/local/bin/helm
+    when: not helm_binary.stat.exists
+
+  - name: Check if Helmfile is installed
+    ansible.builtin.stat:
+      path: /usr/local/bin/helmfile
+    register: helmfile_binary
+
+  - name: Install Helmfile
+    ansible.builtin.get_url:
+      url: "https://github.com/helmfile/helmfile/releases/download/v{{ helmfile_version }}/helmfile_{{ helmfile_version }}_linux_amd64.tar.gz"
+      dest: /tmp/helmfile.tar.gz
+      mode: "0644"
+    when: not helmfile_binary.stat.exists
+
+  - name: Extract Helmfile
+    ansible.builtin.unarchive:
+      src: /tmp/helmfile.tar.gz
+      dest: /usr/local/bin
+      remote_src: true
+      mode: "0755"
+    when: not helmfile_binary.stat.exists
+
+  - name: Ensure helmfile is executable
+    ansible.builtin.file:
+      path: /usr/local/bin/helmfile
+      mode: "0755"
+    when: not helmfile_binary.stat.exists
+
+  - name: Create Cilium deployment directory
+    ansible.builtin.file:
+      path: /opt/cilium
+      state: directory
+      mode: "0755"
+
+  - name: Copy values.yml for Cilium
+    ansible.builtin.template:
+      src: values.yml.j2
+      dest: /opt/cilium/values.yml
+      mode: "0644"
+
+  - name: Copy helmfile.yaml
+    ansible.builtin.template:
+      src: helmfile.yaml.j2
+      dest: /opt/cilium/helmfile.yaml
+      mode: "0644"
+
+  - name: Install Helm diff plugin
+    ansible.builtin.shell: |
+      export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+      /usr/local/bin/helm plugin install https://github.com/databus23/helm-diff || true
+    args:
+      creates: /root/.local/share/helm/plugins/helm-diff
+
+  - name: Wait for Cilium to be ready before configuration
+    ansible.builtin.wait_for:
+      timeout: 60
+
+  - name: Apply Cilium configuration with Helmfile
+    ansible.builtin.shell: |
+      export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+      export PATH=$PATH:/var/lib/rancher/rke2/bin
+      cd /opt/cilium && /usr/local/bin/helmfile sync
+    register: helmfile_result
+    retries: 3
+    delay: 30
+    until: helmfile_result.rc == 0
+
+  - name: Display Helmfile output
+    ansible.builtin.debug:
+      var: helmfile_result.stdout_lines

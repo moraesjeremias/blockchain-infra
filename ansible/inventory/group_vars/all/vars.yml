@@ -1,0 +1,33 @@
+---
+# RKE2 Configuration
+rke2_version: "v1.35.0+rke2r1"
+rke2_channel: stable
+
+# Cluster DNS endpoint (set to first control plane IP or load balancer)
+rke2_server_url: "https://{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}:9345"
+rke2_api_url: "https://{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}:6443"
+
+# TLS SANs - add your domain or load balancer IP here
+rke2_tls_san:
+  - "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
+
+# Tokens - referenced from vault.yml
+rke2_token: "{{ vault_rke2_token }}"
+rke2_agent_token: "{{ vault_rke2_agent_token }}"
+
+# CNI Configuration
+rke2_cni: "none"
+rke2_disable_kube_proxy: true
+
+# Components to disable
+rke2_disable:
+  - rke2-ingress-nginx
+
+# Cilium configuration
+cillium_version: "1.18.6"
+cilium_k8s_service_host: "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
+cilium_k8s_service_port: "6443"
+
+# Helmfile configuration
+helmfile_version: "1.2.3"
+helm_version: "3.19.0"

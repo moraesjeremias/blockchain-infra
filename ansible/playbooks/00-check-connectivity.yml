@@ -1,0 +1,27 @@
+---
+  - name: Check connectivity to all nodes
+    hosts: all
+    gather_facts: false
+    tasks:
+      - name: Ping all hosts
+        ansible.builtin.ping:
+        register: ping_result
+
+      - name: Display ping result
+        ansible.builtin.debug:
+          msg: "Host {{ inventory_hostname }} is reachable"
+
+      - name: Gather basic facts
+        ansible.builtin.setup:
+          gather_subset:
+            - network
+            - hardware
+
+      - name: Display node information
+        ansible.builtin.debug:
+          msg: |
+            Hostname: {{ ansible_hostname }}
+            OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+            IP: {{ ansible_default_ipv4.address | default('N/A') }}
+            Memory: {{ ansible_memtotal_mb }} MB
+            CPUs: {{ ansible_processor_vcpus }}

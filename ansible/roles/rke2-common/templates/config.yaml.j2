@@ -1,0 +1,31 @@
+{% if rke2_node_type == 'server' %}
+{% if not rke2_is_first_server %}
+server: {{ rke2_server_url }}
+{% endif %}
+token: {{ rke2_token }}
+agent-token: {{ rke2_agent_token }}
+{% if rke2_is_first_server %}
+tls-san:
+{% for san in rke2_tls_san %}
+  - {{ san }}
+{% endfor %}
+{% endif %}
+{% else %}
+server: {{ rke2_server_url }}
+token: {{ rke2_agent_token }}
+{% endif %}
+node-name: {{ inventory_hostname }}
+node-ip: {{ ansible_host }}
+node-external-ip: {{ ansible_host }}
+{% if rke2_node_type == 'server' %}
+advertise-address: {{ ansible_host }}
+cni: {{ rke2_cni }}
+disable-kube-proxy: {{ rke2_disable_kube_proxy | lower }}
+{% for component in rke2_disable %}
+disable:
+  - {{ component }}
+{% endfor %}
+{% else %}
+node-label:
+  - "node.kubernetes.io/role=worker"
+{% endif %}

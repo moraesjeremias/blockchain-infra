@@ -1,0 +1,21 @@
+---
+# Full cluster deployment playbook
+# Run with: ansible-playbook playbooks/site.yml
+
+  - name: Check connectivity to all nodes
+    ansible.builtin.import_playbook: 00-check-connectivity.yml
+
+  - name: Update packages on all hosts
+    ansible.builtin.import_playbook: 01-update-packages.yml
+
+  - name: Install RKE2 on Control Plane nodes
+    ansible.builtin.import_playbook: 02-install-rke2-control-plane.yml
+
+  - name: Install RKE2 on Worker nodes
+    ansible.builtin.import_playbook: 03-install-rke2-workers.yml
+
+  - name: Configure Cilium with Helmfile
+    ansible.builtin.import_playbook: 04-configure-cilium.yml
+
+  - name: Check Cluster Status
+    ansible.builtin.import_playbook: 05-check-cluster-status.yml

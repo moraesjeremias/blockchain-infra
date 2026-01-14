@@ -12,14 +12,14 @@ repos:
     rev: '79a6b2b'
     hooks:
       - id: yamllint
-        exclude: (.*/templates/|.*.helmfile.yaml) # templating breaks yaml parser
+        exclude: (.*/templates/|.*.helmfile.yaml/|.*.vault.yml) # templating breaks yaml parser
         verbose: true
   - repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
     rev: 8d1b9ca
     # if this hook spits Python errors, check if the breaking file is using templates and if the syntax is valid
     hooks:
       - id: yamlfmt
-        exclude: (..*/templates/|.*.helmfile.yaml|.*cloud-config.*\.yaml)
+        exclude: (..*/templates/|.*.helmfile.yaml|.*cloud-config.*\.yaml|.*/vault.yml)
         args: [--mapping, "2", --sequence, "4", --offset, "2", --preserve-quotes]
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: 3e855bb
