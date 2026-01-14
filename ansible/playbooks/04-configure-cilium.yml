@@ -1,0 +1,5 @@
+---
+  - name: Configure Cilium with Helmfile
+    hosts: control_plane[0]
+    roles:
+      - cilium

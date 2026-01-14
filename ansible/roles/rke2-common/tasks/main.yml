@@ -1,0 +1,53 @@
+---
+  - name: Create RKE2 config directory
+    ansible.builtin.file:
+      path: /etc/rancher/rke2
+      state: directory
+      mode: "0755"
+
+  - name: Install required packages
+    ansible.builtin.apt:
+      name:
+        - curl
+        - apt-transport-https
+        - ca-certificates
+        - gnupg
+      state: present
+      update_cache: true
+
+  - name: Load required kernel modules
+    community.general.modprobe:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - br_netfilter
+      - overlay
+
+  - name: Persist kernel modules
+    ansible.builtin.copy:
+      content: |
+        br_netfilter
+        overlay
+      dest: /etc/modules-load.d/k8s.conf
+      mode: "0644"
+
+  - name: Set sysctl parameters for Kubernetes
+    ansible.posix.sysctl:
+      name: "{{ item.name }}"
+      value: "{{ item.value }}"
+      sysctl_file: /etc/sysctl.d/99-kubernetes.conf
+      reload: true
+    loop:
+      - {name: "net.bridge.bridge-nf-call-iptables", value: "1"}
+      - {name: "net.bridge.bridge-nf-call-ip6tables", value: "1"}
+      - {name: "net.ipv4.ip_forward", value: "1"}
+
+  - name: Disable swap
+    ansible.builtin.command: swapoff -a
+    changed_when: false
+
+  - name: Remove swap from fstab
+    ansible.builtin.lineinfile:
+      path: /etc/fstab
+      regexp: ".*swap.*"
+      state: absent

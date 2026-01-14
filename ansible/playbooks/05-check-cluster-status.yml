@@ -1,0 +1,117 @@
+---
+  - name: Check Cluster Status
+    hosts: control_plane[0]
+    gather_facts: false
+    tasks:
+      - name: Set kubeconfig environment
+        ansible.builtin.set_fact:
+          kubeconfig_path: /etc/rancher/rke2/rke2.yaml
+
+      - name: Get node status
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get nodes -o wide
+        register: node_status
+        changed_when: false
+
+      - name: Display node status
+        ansible.builtin.debug:
+          msg: "{{ node_status.stdout_lines }}"
+
+      - name: Check all nodes are Ready
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get nodes --no-headers | grep -v " Ready " || true
+        register: not_ready_nodes
+        changed_when: false
+
+      - name: Report not ready nodes
+        ansible.builtin.debug:
+          msg: "WARNING: Some nodes are not ready: {{ not_ready_nodes.stdout_lines }}"
+        when: not_ready_nodes.stdout | length > 0
+
+      - name: Confirm all nodes ready
+        ansible.builtin.debug:
+          msg: "All nodes are in Ready state"
+        when: not_ready_nodes.stdout | length == 0
+
+      - name: Get pod status in kube-system
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get pods -n kube-system -o wide
+        register: kube_system_pods
+        changed_when: false
+
+      - name: Display kube-system pods
+        ansible.builtin.debug:
+          msg: "{{ kube_system_pods.stdout_lines }}"
+
+      - name: Check Cilium status
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get pods -n kube-system -l app.kubernetes.io/name=cilium -o wide
+        register: cilium_pods
+        changed_when: false
+
+      - name: Display Cilium pods
+        ansible.builtin.debug:
+          msg: "{{ cilium_pods.stdout_lines }}"
+
+      - name: Check Hubble status
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get pods -n kube-system -l app.kubernetes.io/name=hubble-relay -o wide
+        register: hubble_pods
+        changed_when: false
+        ignore_errors: true
+
+      - name: Display Hubble pods
+        ansible.builtin.debug:
+          msg: "{{ hubble_pods.stdout_lines }}"
+        when: hubble_pods.rc == 0
+
+      - name: Verify kube-proxy is disabled
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get pods -n kube-system -l k8s-app=kube-proxy --no-headers 2>/dev/null | wc -l
+        register: kube_proxy_count
+        changed_when: false
+
+      - name: Report kube-proxy status
+        ansible.builtin.debug:
+          msg: "{{ 'kube-proxy is DISABLED (expected)' if kube_proxy_count.stdout | int == 0 else 'WARNING: kube-proxy pods found: ' ~ kube_proxy_count.stdout\
+            \ }}"
+
+      - name: Get cluster info
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl cluster-info
+        register: cluster_info
+        changed_when: false
+
+      - name: Display cluster info
+        ansible.builtin.debug:
+          msg: "{{ cluster_info.stdout_lines }}"
+
+      - name: Check component statuses
+        ansible.builtin.shell: |
+          export KUBECONFIG={{ kubeconfig_path }}
+          /var/lib/rancher/rke2/bin/kubectl get componentstatuses 2>/dev/null || echo "Component statuses not available (deprecated in newer K8s versions)"
+        register: component_status
+        changed_when: false
+        ignore_errors: true
+
+      - name: Display component statuses
+        ansible.builtin.debug:
+          msg: "{{ component_status.stdout_lines }}"
+
+      - name: Summary
+        ansible.builtin.debug:
+          msg: |
+            ============================================
+            CLUSTER STATUS SUMMARY
+            ============================================
+            Nodes: {{ node_status.stdout_lines | length - 1 }} node(s) in cluster
+            kube-proxy: {{ 'DISABLED' if kube_proxy_count.stdout | int == 0 else 'RUNNING (' ~ kube_proxy_count.stdout ~ ' pods)' }}
+            Cilium: {{ 'RUNNING' if cilium_pods.stdout_lines | length > 1 else 'NOT FOUND' }}
+            ============================================

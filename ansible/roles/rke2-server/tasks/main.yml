@@ -1,0 +1,104 @@
+---
+  - name: Include common RKE2 tasks
+    ansible.builtin.include_role:
+      name: rke2-common
+
+  - name: Check if RKE2 is already installed
+    ansible.builtin.stat:
+      path: /usr/local/bin/rke2
+    register: rke2_binary
+
+  - name: Set first server flag
+    ansible.builtin.set_fact:
+      rke2_is_first_server: "{{ inventory_hostname == groups['control_plane'][0] }}"
+
+  - name: Set node type
+    ansible.builtin.set_fact:
+      rke2_node_type: "server"
+
+  - name: Deploy RKE2 server config
+    ansible.builtin.template:
+      src: ../rke2-common/templates/config.yaml.j2
+      dest: /etc/rancher/rke2/config.yaml
+      mode: "0600"
+    notify: Restart rke2-server
+
+  - name: Install RKE2 server
+    ansible.builtin.shell: |
+      curl -sfL https://get.rke2.io | \
+        INSTALL_RKE2_VERSION={{ rke2_version }} \
+        INSTALL_RKE2_TYPE=server \
+        INSTALL_RKE2_CHANNEL={{ rke2_channel }} \
+        INSTALL_RKE2_METHOD=tar sh -
+    args:
+      creates: /usr/local/bin/rke2
+    when: not rke2_binary.stat.exists
+
+  - name: Enable rke2-server service
+    ansible.builtin.systemd:
+      name: rke2-server
+      enabled: true
+
+  - name: Start rke2-server on first control plane
+    ansible.builtin.systemd:
+      name: rke2-server
+      state: started
+    when: rke2_is_first_server
+
+  - name: Wait for first control plane to be ready
+    ansible.builtin.wait_for:
+      path: /var/lib/rancher/rke2/server/node-token
+      timeout: 300
+    when: rke2_is_first_server
+
+  - name: Wait for API server to be ready on first control plane
+    ansible.builtin.wait_for:
+      host: "{{ ansible_host }}"
+      port: 6443
+      timeout: 300
+    when: rke2_is_first_server
+
+  - name: Start rke2-server on additional control planes
+    ansible.builtin.systemd:
+      name: rke2-server
+      state: started
+    when: not rke2_is_first_server
+
+  - name: Wait for node to join cluster
+    ansible.builtin.wait_for:
+      host: "{{ ansible_host }}"
+      port: 6443
+      timeout: 300
+    when: not rke2_is_first_server
+
+  - name: Add RKE2 binaries to PATH
+    ansible.builtin.copy:
+      content: |
+        export PATH=$PATH:/var/lib/rancher/rke2/bin
+        export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+      dest: /etc/profile.d/rke2.sh
+      mode: "0644"
+
+  - name: Create symlink for kubectl
+    ansible.builtin.file:
+      src: /var/lib/rancher/rke2/bin/kubectl
+      dest: /usr/local/bin/kubectl
+      state: link
+    ignore_errors: true
+
+  - name: Fetch kubeconfig from first control plane
+    ansible.builtin.fetch:
+      src: /etc/rancher/rke2/rke2.yaml
+      dest: "{{ playbook_dir }}/../kubeconfig"
+      flat: true
+    when: rke2_is_first_server
+
+  - name: Update kubeconfig server address
+    delegate_to: localhost
+    become: false
+    ansible.builtin.replace:
+      path: "{{ playbook_dir }}/../kubeconfig"
+      regexp: "127.0.0.1"
+      replace: "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
+    when: rke2_is_first_server
+    run_once: true

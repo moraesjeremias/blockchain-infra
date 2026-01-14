@@ -1,0 +1,5 @@
+---
+  - name: Install RKE2 on Worker nodes
+    hosts: workers
+    roles:
+      - rke2-agent

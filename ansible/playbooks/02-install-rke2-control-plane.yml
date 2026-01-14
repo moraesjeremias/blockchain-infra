@@ -1,0 +1,6 @@
+---
+  - name: Install RKE2 on Control Plane nodes
+    hosts: control_plane
+    serial: 1
+    roles:
+      - rke2-server
