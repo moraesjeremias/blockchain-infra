@@ -190,12 +190,12 @@ The Latitude.sh project ID is fetched from Google Secret Manager:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `rke2_version` | `v1.31.1+rke2r1` | RKE2 version to install |
+| `rke2_version` | `v1.35.0+rke2r1` | RKE2 version to install |
 | `rke2_channel` | `stable` | RKE2 release channel |
 | `rke2_cni` | `cilium` | CNI plugin |
 | `rke2_disable_kube_proxy` | `true` | Disable kube-proxy (Cilium replacement) |
-| `helm_version` | `3.16.3` | Helm version |
-| `helmfile_version` | `0.169.2` | Helmfile version |
+| `helm_version` | `3.19.0` | Helm version |
+| `helmfile_version` | `1.2.3` | Helmfile version |
 
 ### Cilium Configuration
 

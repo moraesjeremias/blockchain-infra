@@ -116,7 +116,7 @@ Example: `production-master-1`, `production-worker-1`
 - **Public IPs**: All nodes accessible
 
 ### Kubernetes Stack
-- **Version**: RKE2 v1.31.1+rke2r1
+- **Version**: RKE2 v1.35.0+rke2r1
 - **CNI**: Cilium 1.16.3
 - **Kube-proxy**: Replaced by Cilium
 - **Container Runtime**: containerd
