@@ -1,0 +1,17 @@
+---
+repositories:
+  - name: prometheus
+    url: https://prometheus-community.github.io/helm-charts
+
+releases:
+  - name: prometheus-operator
+    namespace: infrastructure
+    installed: true
+    version: 26.0.0
+    chart: prometheus/prometheus-operator-crds
+    atomic: true
+    createNamespace: true
+    timeout: 180
+
+helmDefaults:
+  kubeContext: default

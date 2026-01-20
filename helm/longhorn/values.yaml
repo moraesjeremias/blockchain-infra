@@ -1,0 +1,14 @@
+---
+persistence:
+  defaultFsType: xfs
+  defaultNodeSelector:
+    enable: true
+    selector: "node.longhorn.io/create-default-disk"
+defaultSettings:
+  defaultDataPath: /pv-disks/data
+longhornManager:
+  log:
+    format: "json"
+longhornDriver:
+  log:
+    format: "json"

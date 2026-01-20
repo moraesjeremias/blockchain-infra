@@ -1,0 +1,19 @@
+---
+repositories:
+  - name: longhorn
+    url: https://charts.longhorn.io
+
+releases:
+  - name: longhorn
+    namespace: longhorn-system
+    installed: true
+    version: 1.10.1
+    chart: longhorn/longhorn
+    atomic: true
+    createNamespace: true
+    timeout: 180
+    values:
+      - values.yaml
+
+helmDefaults:
+  kubeContext: default
