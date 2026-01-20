@@ -1,0 +1,13 @@
+---
+server:
+  extraFlags:
+    - log.format=json
+    - web.enable-lifecycle
+    - web.enable-remote-write-receiver
+  ingress:
+    enabled: false
+  persistentVolume:
+    size: 20Gi
+    storageClass: longhorn
+  nodeSelector:
+    kubernetes.io/hostname: worker-1

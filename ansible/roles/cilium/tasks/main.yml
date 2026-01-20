@@ -66,9 +66,32 @@
     args:
       creates: /root/.local/share/helm/plugins/helm-diff
 
-  - name: Wait for Cilium to be ready before configuration
+  - name: Run Helmfile diff to check for changes
+    ansible.builtin.shell: |
+      export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+      export PATH=$PATH:/var/lib/rancher/rke2/bin
+      cd /opt/cilium && /usr/local/bin/helmfile diff --suppress-secrets 2>&1
+    register: helmfile_diff
+    changed_when: false
+    failed_when: false
+
+  - name: Check if there are changes to apply
+    ansible.builtin.set_fact:
+      cilium_has_changes: "{{ helmfile_diff.stdout | length > 0 and 'no changes' not in helmfile_diff.stdout | lower }}"
+
+  - name: Display diff result
+    ansible.builtin.debug:
+      msg: "{{ 'Changes detected - will apply Cilium configuration' if cilium_has_changes else 'No changes detected - skipping Cilium sync' }}"
+
+  - name: Display Helmfile diff output
+    ansible.builtin.debug:
+      var: helmfile_diff.stdout_lines
+    when: cilium_has_changes
+
+  - name: Wait for cluster to be ready before applying changes
     ansible.builtin.wait_for:
       timeout: 60
+    when: cilium_has_changes
 
   - name: Apply Cilium configuration with Helmfile
     ansible.builtin.shell: |
@@ -79,7 +102,9 @@
     retries: 3
     delay: 30
     until: helmfile_result.rc == 0
+    when: cilium_has_changes
 
-  - name: Display Helmfile output
+  - name: Display Helmfile sync output
     ansible.builtin.debug:
       var: helmfile_result.stdout_lines
+    when: cilium_has_changes and helmfile_result is defined
