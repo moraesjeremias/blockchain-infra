@@ -1,0 +1,26 @@
+---
+# LVM Storage Configuration
+
+# Volume group name
+lvm_vg_name: "vg_data"
+
+# Logical volume name
+lvm_lv_name: "lv_data"
+
+# Mount point for the logical volume
+lvm_mount_point: "/pv-disks/data"
+
+# Filesystem type
+lvm_fs_type: "xfs"
+
+# Filesystem label
+lvm_fs_label: "lv_data"
+
+# List of disks to use for LVM (will be auto-detected if empty)
+# These should be unused disks not part of any RAID or existing filesystem
+lvm_disks: []
+
+# Disks to exclude from auto-detection (e.g., disks that are part of RAID)
+lvm_exclude_disks:
+  - sdb
+  - nvme1n1

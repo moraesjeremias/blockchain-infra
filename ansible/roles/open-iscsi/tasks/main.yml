@@ -1,0 +1,79 @@
+---
+# Open-iSCSI installation and configuration
+
+  - name: Check if iscsid service is running
+    ansible.builtin.systemd:
+      name: iscsid
+    register: iscsid_status
+    failed_when: false
+    changed_when: false
+
+  - name: Set fact for iscsid running state
+    ansible.builtin.set_fact:
+      iscsid_running: "{{ iscsid_status.status.ActiveState | default('inactive') == 'active' }}"
+
+  - name: Display iscsid status
+    ansible.builtin.debug:
+      msg: "{{ 'iscsid is already running - skipping installation' if iscsid_running else 'iscsid not running - proceeding with installation' }}"
+
+  - name: Install open-iscsi package
+    ansible.builtin.apt:
+      name: open-iscsi
+      state: present
+      update_cache: true
+    when: not iscsid_running
+
+  - name: Load iscsi_tcp kernel module
+    community.general.modprobe:
+      name: iscsi_tcp
+      state: present
+    when: not iscsid_running
+
+  - name: Persist iscsi_tcp kernel module
+    ansible.builtin.copy:
+      content: "iscsi_tcp\n"
+      dest: /etc/modules-load.d/iscsi.conf
+      mode: "0644"
+    when: not iscsid_running
+
+  - name: Enable iscsid service
+    ansible.builtin.systemd:
+      name: iscsid
+      enabled: true
+    when: not iscsid_running
+
+  - name: Start iscsid service
+    ansible.builtin.systemd:
+      name: iscsid
+      state: started
+    when: not iscsid_running
+
+  - name: Verify iscsid service is running
+    ansible.builtin.systemd:
+      name: iscsid
+    register: iscsid_final_status
+
+  - name: Validate iscsid is active
+    ansible.builtin.assert:
+      that:
+        - iscsid_final_status.status.ActiveState == 'active'
+      fail_msg: "iscsid service is not running. Current state: {{ iscsid_final_status.status.ActiveState }}"
+      success_msg: "iscsid service is running successfully"
+
+  - name: Verify iscsi_tcp module is loaded
+    ansible.builtin.shell: lsmod | grep iscsi_tcp
+    register: iscsi_module_check
+    changed_when: false
+    failed_when: false
+
+  - name: Display iscsi_tcp module status
+    ansible.builtin.debug:
+      msg: "{{ 'iscsi_tcp module is loaded' if iscsi_module_check.rc == 0 else 'WARNING: iscsi_tcp module not loaded' }}"
+
+  - name: Display open-iscsi installation summary
+    ansible.builtin.debug:
+      msg: |
+        === Open-iSCSI Status ===
+        Service: {{ iscsid_final_status.status.ActiveState }}
+        Enabled: {{ iscsid_final_status.status.UnitFileState }}
+        iscsi_tcp module: {{ 'loaded' if iscsi_module_check.rc == 0 else 'not loaded' }}

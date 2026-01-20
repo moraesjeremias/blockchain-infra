@@ -1,0 +1,6 @@
+---
+  - name: Install and configure open-iscsi on all nodes
+    hosts: all
+    become: true
+    roles:
+      - open-iscsi
