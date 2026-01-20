@@ -1,0 +1,6 @@
+---
+  - name: Setup LVM storage on worker nodes
+    hosts: workers
+    become: true
+    roles:
+      - lvm-storage

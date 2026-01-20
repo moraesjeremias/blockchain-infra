@@ -1,0 +1,193 @@
+---
+# LVM Storage Setup - Creates a single logical volume combining all available disks
+
+  - name: Validate this role only runs on worker nodes
+    ansible.builtin.assert:
+      that:
+        - inventory_hostname in groups['workers']
+      fail_msg: "This role must only run on worker nodes. Current host '{{ inventory_hostname }}' is not in 'workers' group."
+      success_msg: "Host '{{ inventory_hostname }}' is a worker node. Proceeding with LVM setup."
+
+  - name: Install LVM2 and XFS utilities
+    ansible.builtin.apt:
+      name:
+        - lvm2
+        - xfsprogs
+      state: present
+      update_cache: true
+
+# Check existing LVM configuration
+  - name: Check for existing physical volumes
+    ansible.builtin.command: pvdisplay -C --noheadings
+    register: pv_display
+    changed_when: false
+    failed_when: false
+
+  - name: Check for existing volume groups
+    ansible.builtin.command: vgdisplay -C --noheadings
+    register: vg_display
+    changed_when: false
+    failed_when: false
+
+  - name: Check for existing logical volumes
+    ansible.builtin.command: lvdisplay -C --noheadings
+    register: lv_display
+    changed_when: false
+    failed_when: false
+
+  - name: Display existing LVM configuration
+    ansible.builtin.debug:
+      msg: |
+        === Existing LVM Configuration ===
+        Physical Volumes: {{ pv_display.stdout_lines | default([]) | length }} found
+        {{ pv_display.stdout if pv_display.stdout else '  (none)' }}
+        Volume Groups: {{ vg_display.stdout_lines | default([]) | length }} found
+        {{ vg_display.stdout if vg_display.stdout else '  (none)' }}
+        Logical Volumes: {{ lv_display.stdout_lines | default([]) | length }} found
+        {{ lv_display.stdout if lv_display.stdout else '  (none)' }}
+
+  - name: Set fact for LVM already configured
+    ansible.builtin.set_fact:
+      lvm_already_configured: >-
+        {{
+          (pv_display.stdout | default('') | trim | length > 0) and
+          (vg_display.stdout | default('') | trim | length > 0) and
+          (lv_display.stdout | default('') | trim | length > 0)
+        }}
+
+  - name: Display LVM configuration status
+    ansible.builtin.debug:
+      msg: "{{ 'LVM already configured - skipping setup tasks' if lvm_already_configured else 'No existing LVM configuration - proceeding with setup' }}"
+
+# All remaining tasks only run if LVM is not already configured
+  - name: Gather disk facts
+    ansible.builtin.setup:
+      gather_subset:
+        - devices
+    when: not lvm_already_configured
+
+  - name: Get list of all block devices
+    ansible.builtin.shell: |
+      lsblk -dnpo NAME,TYPE | awk '$2=="disk" {print $1}'
+    register: all_disks
+    changed_when: false
+    when: not lvm_already_configured
+
+  - name: Get disks that are part of RAID arrays
+    ansible.builtin.shell: |
+      cat /proc/mdstat 2>/dev/null | grep -oE '\b[a-z]+[0-9]*\b' | grep -v md | sort -u || true
+    register: raid_disks
+    changed_when: false
+    when: not lvm_already_configured
+
+  - name: Get disks with mounted partitions
+    ansible.builtin.shell: |
+      lsblk -npo NAME,MOUNTPOINT | awk '$2!="" {print $1}' | sed 's/[0-9]*$//' | sort -u | xargs -I{} basename {}
+    register: mounted_disks
+    changed_when: false
+    when: not lvm_already_configured
+
+  - name: Identify available disks for LVM
+    ansible.builtin.set_fact:
+      available_disks: >-
+        {{
+          all_disks.stdout_lines |
+          map('basename') |
+          reject('in', lvm_exclude_disks) |
+          reject('in', raid_disks.stdout_lines) |
+          reject('in', mounted_disks.stdout_lines) |
+          list
+        }}
+    when: not lvm_already_configured
+
+  - name: Use provided disks if specified, otherwise use auto-detected
+    ansible.builtin.set_fact:
+      lvm_target_disks: "{{ lvm_disks if lvm_disks | length > 0 else available_disks }}"
+    when: not lvm_already_configured
+
+  - name: Display disks to be used for LVM
+    ansible.builtin.debug:
+      msg: |
+        Available disks for LVM: {{ lvm_target_disks }}
+        Excluded disks: {{ lvm_exclude_disks }}
+        RAID disks (auto-excluded): {{ raid_disks.stdout_lines }}
+    when: not lvm_already_configured
+
+  - name: Fail if no disks available for LVM
+    ansible.builtin.assert:
+      that:
+        - lvm_target_disks | length > 0
+      fail_msg: "No available disks found for LVM setup. Check lvm_exclude_disks configuration."
+      success_msg: "Found {{ lvm_target_disks | length }} disk(s) for LVM: {{ lvm_target_disks | join(', ') }}"
+    when: not lvm_already_configured
+
+  - name: Create physical volumes
+    ansible.builtin.command: pvcreate /dev/{{ item }}
+    loop: "{{ lvm_target_disks }}"
+    register: pv_result
+    changed_when: pv_result.rc == 0
+    when: not lvm_already_configured
+
+  - name: Create volume group with all disks
+    ansible.builtin.command: >
+      vgcreate {{ lvm_vg_name }}
+      {% for disk in lvm_target_disks %}/dev/{{ disk }} {% endfor %}
+    register: vg_result
+    changed_when: vg_result.rc == 0
+    when: not lvm_already_configured
+
+  - name: Create logical volume using all available space
+    ansible.builtin.command: >
+      lvcreate -l 100%FREE
+      -i {{ lvm_target_disks | length }}
+      -n {{ lvm_lv_name }}
+      {{ lvm_vg_name }}
+    register: lv_result
+    changed_when: lv_result.rc == 0
+    when: not lvm_already_configured
+
+  - name: Create XFS filesystem on logical volume
+    ansible.builtin.filesystem:
+      fstype: "{{ lvm_fs_type }}"
+      dev: "/dev/{{ lvm_vg_name }}/{{ lvm_lv_name }}"
+    when: not lvm_already_configured
+
+  - name: Set filesystem label
+    ansible.builtin.command: xfs_admin -L {{ lvm_fs_label }} /dev/{{ lvm_vg_name }}/{{ lvm_lv_name }}
+    register: label_result
+    changed_when: label_result.rc == 0
+    when: not lvm_already_configured
+
+  - name: Create mount point directory
+    ansible.builtin.file:
+      path: "{{ lvm_mount_point }}"
+      state: directory
+      mode: "0755"
+    when: not lvm_already_configured
+
+  - name: Mount the logical volume
+    ansible.posix.mount:
+      path: "{{ lvm_mount_point }}"
+      src: "LABEL={{ lvm_fs_label }}"
+      fstype: "{{ lvm_fs_type }}"
+      opts: defaults
+      state: mounted
+    when: not lvm_already_configured
+
+  - name: Verify mount and display information
+    ansible.builtin.shell: |
+      echo "=== LVM Configuration ===" && \
+      pvdisplay -C && echo "" && \
+      vgdisplay -C && echo "" && \
+      lvdisplay -C && echo "" && \
+      echo "=== Filesystem ===" && \
+      df -h {{ lvm_mount_point }} && echo "" && \
+      lsblk /dev/{{ lvm_vg_name }}/{{ lvm_lv_name }}
+    register: lvm_info
+    changed_when: false
+    when: not lvm_already_configured
+
+  - name: Display LVM setup summary
+    ansible.builtin.debug:
+      msg: "{{ lvm_info.stdout_lines }}"
+    when: not lvm_already_configured and lvm_info is defined

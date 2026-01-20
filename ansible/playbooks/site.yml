@@ -8,14 +8,20 @@
   - name: Update packages on all hosts
     ansible.builtin.import_playbook: 01-update-packages.yml
 
+  - name: Install and configure open-iscsi on all nodes
+    ansible.builtin.import_playbook: 02-install-open-iscsi.yml
+
+  - name: Setup LVM storage on worker nodes
+    ansible.builtin.import_playbook: 03-setup-lvm-storage.yml
+
   - name: Install RKE2 on Control Plane nodes
-    ansible.builtin.import_playbook: 02-install-rke2-control-plane.yml
+    ansible.builtin.import_playbook: 04-install-rke2-control-plane.yml
 
   - name: Install RKE2 on Worker nodes
-    ansible.builtin.import_playbook: 03-install-rke2-workers.yml
+    ansible.builtin.import_playbook: 05-install-rke2-workers.yml
 
   - name: Configure Cilium with Helmfile
-    ansible.builtin.import_playbook: 04-configure-cilium.yml
+    ansible.builtin.import_playbook: 06-configure-cilium.yml
 
   - name: Check Cluster Status
-    ansible.builtin.import_playbook: 05-check-cluster-status.yml
+    ansible.builtin.import_playbook: 07-check-cluster-status.yml
