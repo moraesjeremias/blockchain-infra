@@ -27,5 +27,5 @@ module "vlan" {
   project          = data.google_secret_manager_secret_version.latitude_project_id.secret_data
   server_ids       = { for index, id in concat(module.k8s-worker.server_ids, module.k8s-control-plane.server_ids) : "server-${index}" => id }
   region           = local.region
-  tags             = ["role:worker"]
+  tags             = ["role:vlan", "domain:k8s"]
 }
