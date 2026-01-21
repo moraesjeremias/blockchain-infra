@@ -27,6 +27,8 @@ disable:
 {% endfor %}
 node-taint:
   - "CriticalAddonsOnly=true:NoExecute"
+node-label:
+  - "node.kubernetes.io/role=control-plane"
 {% else %}
 node-label:
   - "node.kubernetes.io/role=worker"
