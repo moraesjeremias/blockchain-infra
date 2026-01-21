@@ -25,6 +25,8 @@ disable-kube-proxy: {{ rke2_disable_kube_proxy | lower }}
 disable:
   - {{ component }}
 {% endfor %}
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
 {% else %}
 node-label:
   - "node.kubernetes.io/role=worker"
