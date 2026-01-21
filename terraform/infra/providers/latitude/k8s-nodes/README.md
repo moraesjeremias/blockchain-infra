@@ -21,6 +21,7 @@
 |------|--------|---------|
 | <a name="module_k8s-control-plane"></a> [k8s-control-plane](#module\_k8s-control-plane) | ../../../../modules/providers/latitude/bare-metal-server | n/a |
 | <a name="module_k8s-worker"></a> [k8s-worker](#module\_k8s-worker) | ../../../../modules/providers/latitude/bare-metal-server | n/a |
+| <a name="module_vlan"></a> [vlan](#module\_vlan) | ../../../../modules/providers/latitude/vlan | n/a |
 
 ## Resources
 
