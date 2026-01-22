@@ -60,42 +60,67 @@
       msg: "{{ 'LVM already configured - skipping setup tasks' if lvm_already_configured else 'No existing LVM configuration - proceeding with setup' }}"
 
 # All remaining tasks only run if LVM is not already configured
-  - name: Gather disk facts
-    ansible.builtin.setup:
-      gather_subset:
-        - devices
-    when: not lvm_already_configured
-
-  - name: Get list of all block devices
-    ansible.builtin.shell: |
-      lsblk -dnpo NAME,TYPE | awk '$2=="disk" {print $1}'
-    register: all_disks
+  - name: Get block devices information as JSON
+    ansible.builtin.command: lsblk --json -po NAME,TYPE,MOUNTPOINT
+    register: lsblk_json
     changed_when: false
     when: not lvm_already_configured
 
-  - name: Get disks that are part of RAID arrays
-    ansible.builtin.shell: |
-      cat /proc/mdstat 2>/dev/null | grep -oE '\b[a-z]+[0-9]*\b' | grep -v md | sort -u || true
-    register: raid_disks
-    changed_when: false
+  - name: Parse block devices JSON
+    ansible.builtin.set_fact:
+      lsblk_data: "{{ lsblk_json.stdout | from_json }}"
     when: not lvm_already_configured
 
-  - name: Get disks with mounted partitions
-    ansible.builtin.shell: |
-      lsblk -npo NAME,MOUNTPOINT | awk '$2!="" {print $1}' | sed 's/[0-9]*$//' | sort -u | xargs -I{} basename {}
-    register: mounted_disks
-    changed_when: false
+  - name: Identify disks that have partitions (partitioned or RAID)
+    ansible.builtin.set_fact:
+      partitioned_disks: >-
+        {{
+          lsblk_data.blockdevices |
+          selectattr('type', 'equalto', 'disk') |
+          selectattr('children', 'defined') |
+          map(attribute='name') |
+          map('basename') |
+          list
+        }}
+    when: not lvm_already_configured
+
+  - name: Identify disks with direct mount points
+    ansible.builtin.set_fact:
+      directly_mounted_disks: >-
+        {{
+          lsblk_data.blockdevices |
+          selectattr('type', 'equalto', 'disk') |
+          selectattr('mountpoint', 'defined') |
+          rejectattr('mountpoint', 'none') |
+          map(attribute='name') |
+          map('basename') |
+          list
+        }}
+    when: not lvm_already_configured
+
+  - name: Get all disk names
+    ansible.builtin.set_fact:
+      all_disks: >-
+        {{
+          lsblk_data.blockdevices |
+          selectattr('type', 'equalto', 'disk') |
+          map(attribute='name') |
+          map('basename') |
+          list
+        }}
+    when: not lvm_already_configured
+
+  - name: Combine all exclusions (partitioned + mounted + user-specified)
+    ansible.builtin.set_fact:
+      total_excluded_disks: "{{ (partitioned_disks + directly_mounted_disks + lvm_exclude_disks) | unique }}"
     when: not lvm_already_configured
 
   - name: Identify available disks for LVM
     ansible.builtin.set_fact:
       available_disks: >-
         {{
-          all_disks.stdout_lines |
-          map('basename') |
-          reject('in', lvm_exclude_disks) |
-          reject('in', raid_disks.stdout_lines) |
-          reject('in', mounted_disks.stdout_lines) |
+          all_disks |
+          reject('in', total_excluded_disks) |
           list
         }}
     when: not lvm_already_configured
@@ -105,12 +130,15 @@
       lvm_target_disks: "{{ lvm_disks if lvm_disks | length > 0 else available_disks }}"
     when: not lvm_already_configured
 
-  - name: Display disks to be used for LVM
+  - name: Display disk detection results
     ansible.builtin.debug:
       msg: |
-        Available disks for LVM: {{ lvm_target_disks }}
-        Excluded disks: {{ lvm_exclude_disks }}
-        RAID disks (auto-excluded): {{ raid_disks.stdout_lines }}
+        === Disk Detection Results ===
+        All disks found: {{ all_disks | join(', ') }}
+        Auto-excluded (partitioned/RAID): {{ partitioned_disks | join(', ') or '(none)' }}
+        Directly mounted disks: {{ directly_mounted_disks | join(', ') or '(none)' }}
+        User-excluded disks: {{ lvm_exclude_disks | join(', ') or '(none)' }}
+        === Target disks for LVM: {{ lvm_target_disks | join(', ') or '(none)' }} ===
     when: not lvm_already_configured
 
   - name: Fail if no disks available for LVM

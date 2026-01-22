@@ -47,17 +47,21 @@
       state: directory
       mode: "0755"
 
-  - name: Copy values.yml for Cilium
-    ansible.builtin.template:
-      src: values.yml.j2
-      dest: /opt/cilium/values.yml
+  - name: Copy values.yaml for Cilium
+    ansible.builtin.copy:
+      src: "{{ playbook_dir }}/../../helm/cilium/values.yaml"
+      dest: /opt/cilium/values.yaml
       mode: "0644"
 
-  - name: Copy helmfile.yaml
-    ansible.builtin.template:
-      src: helmfile.yaml.j2
-      dest: /opt/cilium/helmfile.yaml
+  - name: Copy helmfile.yaml.gotmpl
+    ansible.builtin.copy:
+      src: "{{ playbook_dir }}/../../helm/cilium/helmfile.yaml"
+      dest: /opt/cilium/helmfile.yaml.gotmpl
       mode: "0644"
+
+  - name: Set control plane IP for helmfile
+    ansible.builtin.set_fact:
+      cilium_k8s_service_host: "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
 
   - name: Install Helm diff plugin
     ansible.builtin.shell: |
@@ -70,7 +74,8 @@
     ansible.builtin.shell: |
       export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
       export PATH=$PATH:/var/lib/rancher/rke2/bin
-      cd /opt/cilium && /usr/local/bin/helmfile diff --suppress-secrets 2>&1
+      export K8S_CONTROL_PLANE_0_IP={{ cilium_k8s_service_host }}
+      cd /opt/cilium && /usr/local/bin/helmfile -f helmfile.yaml.gotmpl diff --suppress-secrets 2>&1
     register: helmfile_diff
     changed_when: false
     failed_when: false
@@ -97,7 +102,8 @@
     ansible.builtin.shell: |
       export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
       export PATH=$PATH:/var/lib/rancher/rke2/bin
-      cd /opt/cilium && /usr/local/bin/helmfile sync
+      export K8S_CONTROL_PLANE_0_IP={{ cilium_k8s_service_host }}
+      cd /opt/cilium && /usr/local/bin/helmfile -f helmfile.yaml.gotmpl sync
     register: helmfile_result
     retries: 3
     delay: 30

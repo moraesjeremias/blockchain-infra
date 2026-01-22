@@ -23,11 +23,6 @@ rke2_disable_kube_proxy: true
 rke2_disable:
   - rke2-ingress-nginx
 
-# Cilium configuration
-cillium_version: "1.18.6"
-cilium_k8s_service_host: "{{ hostvars[groups['control_plane'][0]]['ansible_host'] }}"
-cilium_k8s_service_port: "6443"
-
 # Helmfile configuration
 helmfile_version: "1.2.3"
 helm_version: "3.19.0"
