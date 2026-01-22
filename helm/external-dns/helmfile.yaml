@@ -1,0 +1,21 @@
+---
+repositories:
+  - name: external-dns
+    url: https://kubernetes-sigs.github.io/external-dns/
+
+releases:
+  - name: external-dns
+    namespace: infrastructure
+    installed: true
+    version: 1.20.0
+    chart: external-dns/external-dns
+    atomic: true
+    createNamespace: true
+    timeout: 120
+    values:
+      - values.yaml
+    secrets:
+      - secrets.yaml
+
+helmDefaults:
+  kubeContext: default
