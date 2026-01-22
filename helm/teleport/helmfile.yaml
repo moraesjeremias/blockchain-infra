@@ -1,0 +1,19 @@
+---
+repositories:
+  - name: teleport
+    url: https://charts.releases.teleport.dev
+
+releases:
+  - name: teleport-cluster
+    namespace: infrastructure
+    installed: true
+    version: 18.6.1
+    chart: teleport/teleport-cluster
+    atomic: true
+    createNamespace: true
+    timeout: 120
+    values:
+      - values.yaml
+
+helmDefaults:
+  kubeContext: default
