@@ -20,7 +20,5 @@ lvm_fs_label: "lv_data"
 # These should be unused disks not part of any RAID or existing filesystem
 lvm_disks: []
 
-# Disks to exclude from auto-detection (e.g., disks that are part of RAID)
-lvm_exclude_disks:
-  - sdb
-  - nvme1n1
+# Additional disks to exclude from auto-detection (optional, auto-detection handles partitioned/RAID disks)
+lvm_exclude_disks: []
