@@ -11,6 +11,7 @@ resource "latitudesh_server" "server" {
 }
 
 # Access the server's attributes
-output "server" {
-  value = latitudesh_server.server
+output "server_ids" {
+  description = "List of server IDs"
+  value       = latitudesh_server.server[*].id
 }

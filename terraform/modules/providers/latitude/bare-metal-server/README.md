@@ -41,5 +41,5 @@ No modules.
 
 | Name | Description |
 |------|-------------|
-| <a name="output_server"></a> [server](#output\_server) | Access the server's attributes |
+| <a name="output_server_ids"></a> [server\_ids](#output\_server\_ids) | List of server IDs |
 <!-- END_TF_DOCS -->
