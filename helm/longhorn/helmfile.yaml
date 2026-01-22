@@ -5,7 +5,7 @@ repositories:
 
 releases:
   - name: longhorn
-    namespace: longhorn-system
+    namespace: infrastructure
     installed: true
     version: 1.10.1
     chart: longhorn/longhorn
