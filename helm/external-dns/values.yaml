@@ -1,0 +1,24 @@
+---
+txtOwnerId: k8schain
+txtPrefix: default
+provider:
+  name: cloudflare
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: cloudflare-api-key
+        key: apiKey
+sources:
+  - ingress
+  - service
+  # Must apply GatewayAPI CRDs first: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+  - gateway-httproute
+  - gateway-grpcroute
+  # Must install Experimental CRDs first. Check https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+  # - gateway-tlsroute
+  # - gateway-tcproute
+  # - gateway-udproute
+domainFilters:
+  - k8schain.com
+logFormat: json

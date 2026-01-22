@@ -1,0 +1,20 @@
+---
+proxyListenerMode: multiplex
+acme: true
+acmeEmail: your@email.com
+log:
+  format: json
+nodeSelector:
+  node.kubernetes.io/role: worker
+clusterName: teleport.example.com
+persistence:
+  enabled: true
+  storageClassName: longhorn
+kubeClusterName: "latitude"
+annotations:
+  service:
+    external-dns.alpha.kubernetes.io/hostname: teleport.example.com
+    # external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+extraLabels:
+  service:
+    com.example/lb-use-case: teleport

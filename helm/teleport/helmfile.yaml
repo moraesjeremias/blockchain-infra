@@ -1,17 +1,17 @@
 ---
 repositories:
-  - name: longhorn
-    url: https://charts.longhorn.io
+  - name: teleport
+    url: https://charts.releases.teleport.dev
 
 releases:
-  - name: longhorn
+  - name: teleport-cluster
     namespace: infrastructure
     installed: true
-    version: 1.10.1
-    chart: longhorn/longhorn
+    version: 18.6.1
+    chart: teleport/teleport-cluster
     atomic: true
     createNamespace: true
-    timeout: 180
+    timeout: 120
     values:
       - values.yaml
 
