@@ -1,0 +1,26 @@
+---
+# L2 Announcement Policy for LoadBalancer IPs
+# Cilium will respond to ARP requests for LoadBalancer IPs
+# This works because 64.34.91.166 is on the same L2 segment as the node
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: l2-policy-teleport
+  namespace: infrastructure
+spec:
+  # Select nodes that can announce (worker nodes with public interface)
+  nodeSelector:
+    matchLabels:
+      rke2.io/hostname: worker-1
+      kubernetes.io/hostname: worker-1
+  # Interface patterns - eno1 is the public interface on worker-1
+  interfaces:
+    - eno1
+    # - ^eno[0-9]+
+  # Which services to announce
+  serviceSelector:
+    matchLabels:
+      com.example/lb-use-case: teleport
+  # Announce these IP types via ARP
+  loadBalancerIPs: true  # IPs assigned by CiliumLoadBalancerIPPool
+  externalIPs: false      # IPs manually set in service.spec.externalIPs

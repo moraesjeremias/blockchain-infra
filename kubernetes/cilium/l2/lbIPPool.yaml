@@ -1,0 +1,15 @@
+---
+# IP Pool for LoadBalancer services
+# Uses the additional IP assigned by Latitude.sh (not the node's primary IP)
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: teleport-lb-pool
+  namespace: infrastructure
+spec:
+  blocks:
+    - cidr: 192.168.0.1/32 #Replace with additional IPv4 in CIDR format
+  serviceSelector:
+    matchLabels:
+      com.example/lb-use-case: teleport
+  disabled: false
